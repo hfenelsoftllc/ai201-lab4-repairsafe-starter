@@ -1,4 +1,4 @@
-# Home Repair Safety Taxonomy
+  # Home Repair Safety Taxonomy
 
 Use this document when designing your classifier prompt (Milestone 1) and when evaluating whether your classifications make sense. The tier definitions and edge case rules here are what your prompt needs to capture.
 

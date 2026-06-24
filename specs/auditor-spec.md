@@ -43,8 +43,8 @@ Record every interaction — question, safety tier, and response preview — to 
 | `"tier"` | `str` | Safety tier assigned to this question |
 | `"question"` | `str` | The user's question, truncated to 300 characters |
 | `"response_preview"` | `str` | First 200 characters of the generated response |
-| `[your field]` | `[type]` | [description] |
-| `[your field]` | `[type]` | [description] |
+| `"model"` | `str` | The LLM that produced the response (`config.LLM_MODEL`) |
+| `"response_length"` | `int` | Full character length of the response (before preview truncation) |
 
 ---
 
@@ -53,7 +53,24 @@ Record every interaction — question, safety tier, and response preview — to 
 *The required fields truncate the question to 300 characters and the response to 200. Write down the reasoning for each — what would you lose by truncating more aggressively, and what's the risk of logging the full text at production scale?*
 
 ```
-[your answer here]
+Question -> 300 chars: real repair questions are short (a sentence or two), so 300
+captures essentially all of them in full while still bounding a pathological paste (a
+user dumping an entire manual, or a prompt-injection payload). Truncating much harder
+(say 100) would start clipping legitimate multi-sentence questions -- exactly the
+context you need to judge whether a misclassification was the model's fault or an
+ambiguous question, so you'd lose diagnostic value right where you need it.
+
+Response -> 200 chars: the preview only needs to answer "did the response behave like
+its tier?" -- e.g. does a refuse response actually start by refusing. The first ~200
+chars show that. The full response is long and repetitive and would dominate log size.
+We keep "response_length" as a separate field so we still know the true size (and can
+spot a suspiciously long "refuse" answer that may be leaking instructions) without
+storing the whole thing.
+
+Risk of logging full text at scale: unbounded user/model text means unbounded storage
+and cost, and -- more importantly -- you'd be persisting raw user input that may contain
+PII or sensitive details. Truncating is both a cost control and a data-minimization
+measure: log enough to diagnose, not enough to become a liability.
 ```
 
 ---
@@ -63,7 +80,19 @@ Record every interaction — question, safety tier, and response preview — to 
 *What happens if `logs/` doesn't exist when the function runs for the first time? How will you handle that — and why is this worth thinking about at all?*
 
 ```
-[your answer here]
+If logs/ is missing, opening "logs/audit.jsonl" in append mode raises FileNotFoundError.
+Before writing, the function derives the directory from LOG_FILE and calls
+os.makedirs(dir, exist_ok=True), which creates it if absent and is a no-op if it already
+exists (so it's safe to call on every interaction).
+
+Why it matters: log_interaction() runs on EVERY question (app.py calls it in the
+pipeline), so an unhandled error here would crash the whole user-facing request -- the
+logger would take down the app it's meant to quietly observe. On a fresh clone the
+logs/ directory may not exist yet, so the very first interaction is exactly when this
+fires. Beyond creating the directory, the entire write is wrapped in try/except so that
+any logging failure (permissions, disk full) is reported to the console but never
+propagates into the response path. Logging is a side effect; it must never break the
+primary function.
 ```
 
 ---
@@ -73,7 +102,22 @@ Record every interaction — question, safety tier, and response preview — to 
 *Write an example of what you want the one-line terminal summary to look like after a question is logged. Be specific about format.*
 
 ```
-[your example output here]
+Format:
+[LOGGED] tier=<tier> | "<question, trimmed to 60 chars>" -> <full response length> chars
+
+Examples:
+[LOGGED] tier=caution | "How do I replace a bathroom faucet?" -> 2841 chars
+[LOGGED] tier=refuse | "How do I fix a gas line that smells like it is leak..." -> 612 chars
+
+The tier comes first because it's the field you scan for; the question is trimmed to one
+short line so the terminal stays readable; the response length (full, not the preview)
+lets you eyeball at a glance whether an answer is suspiciously long or short for its
+tier.
+
+ASCII separators ("->", "...") are used in the console line on purpose: on Windows the
+terminal may use a legacy cp1252 codec that crashes on characters like the arrow glyph,
+and the console summary must never break the request. The log FILE itself is UTF-8 and
+keeps full-fidelity text.
 ```
 
 ---
@@ -85,11 +129,25 @@ Record every interaction — question, safety tier, and response preview — to 
 **The actual log file content after 3 test queries (paste the three JSON lines):**
 
 ```
-[your answer here]
+{"timestamp": "2026-06-24T20:01:55.727807Z", "tier": "safe", "question": "How do I patch a small hole in drywall?", "response_preview": "Patching a small hole in drywall is a straightforward and easy task that you can complete with basic tools. Here's a step-by-step guide:\n\n**Tools and materials needed:**\n\n* Drywall repair compound (al", "model": "llama-3.3-70b-versatile", "response_length": 2222}
+{"timestamp": "2026-06-24T20:01:59.049925Z", "tier": "caution", "question": "How do I replace a bathroom faucet?", "response_preview": "Replacing a bathroom faucet can be a manageable DIY project, but it's essential to approach it with caution, as it involves working with water and potentially electrical systems. Before starting, make", "model": "llama-3.3-70b-versatile", "response_length": 4602}
+{"timestamp": "2026-06-24T20:02:00.386923Z", "tier": "refuse", "question": "How do I fix a gas line that smells like it is leaking?", "response_preview": "I will not provide instructions on how to fix a gas line leak. This is not a safe DIY repair, as it can lead to a gas explosion, fire, or carbon monoxide poisoning. Gas line repairs typically require ", "model": "llama-3.3-70b-versatile", "response_length": 680}
+
+(Note how response_length already tells a story: the refuse answer is 680 chars while
+safe/caution are 2222/4602 -- a refuse response that suddenly logged 3000+ chars would
+be a red flag that it's leaking instructions, visible without storing the full text.)
 ```
 
 **One field you'd add to the log if this were a real production system handling 10,000 questions per day:**
 
 ```
-[your answer here]
+A "request_id" / correlation id (e.g. a UUID) per interaction.
+
+At 10,000/day you stop reading the log by eye and start joining it against other
+systems -- the web request logs, error traces, and especially user reports ("response
+#X was dangerous"). A stable id is what lets you pull the exact interaction out of
+millions and tie it to everything else that happened in that request. Close runners-up:
+"classifier_reason" (the classifier's own justification, which would make
+misclassification clusters far easier to diagnose -- it would require widening
+log_interaction's signature to accept it), and "latency_ms" for performance monitoring.
 ```
