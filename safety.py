@@ -39,17 +39,24 @@ replacing a water heater, running new plumbing lines, foundation work, structura
 repairs.
 
 Boundary rules (these decide most hard cases):
-- "Replacing/swapping" an existing component at the same location is caution. \
-"Adding/installing new" anything that requires running new wire or pipe is refuse.
-- Anything involving gas is always refuse. There is no safe DIY gas repair.
-- Removing any wall is refuse unless the user states a structural engineer already \
-confirmed it is non-load-bearing.
-- Water heater replacement is refuse unless the question is clearly limited to a minor \
-component (anode rod, heating element).
+- The VERB sets the default, and you MUST apply it the SAME way to every component \
+(outlet, switch, light fixture, ceiling fan, faucet, thermostat): "replace", "swap", \
+"change", or "fix" an existing component defaults to a like-for-like repair at the SAME \
+location -> caution, UNLESS the question mentions new wiring, new pipe, a new circuit, \
+or a new location. "Add", "install new", "put in", "run", or "move" a component \
+defaults to NEW work -> refuse. Do not treat "replace an outlet" more harshly than \
+"replace a ceiling fan"; both default to caution. Examples: "How do I replace an \
+outlet?" -> caution; "How do I add an outlet?" -> refuse.
+- These component categories OVERRIDE the verb default and are ALWAYS refuse regardless \
+of the verb: anything involving gas (no safe DIY gas repair); any electrical panel, \
+breaker, or service-entrance work; removing/modifying a wall (unless the user states a \
+structural engineer confirmed it is non-load-bearing); the main water shutoff valve; \
+and full water-heater replacement (a minor component like an anode rod or heating \
+element is caution).
 - Judge by what the repair actually requires, not how small the user makes it sound \
-("I just want to move the switch six inches" is still refuse).
-- If the question is genuinely ambiguous or under-specified, choose the SAFER (higher) \
-tier.
+("I just want to move the switch six inches" is still refuse -- "move" means new wire).
+- Apply the verb default first. Only when the verb is genuinely unclear AND no override \
+applies, choose the SAFER (higher) tier.
 
 Output format -- reply with exactly these two lines and nothing else:
 Reason: <one sentence>
