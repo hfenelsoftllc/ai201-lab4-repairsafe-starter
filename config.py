@@ -8,4 +8,4 @@ LLM_MODEL = "llama-3.3-70b-versatile"
 LOG_FILE = "logs/audit.jsonl"
 SESSION_SUMMARY_FILE = "logs/session_summary.jsonl"
 SUMMARY_INTERVAL = 5  # write a rolling summary every Nth interaction
-VALID_TIERS = {"safe", "caution", "refuse"}
+VALID_TIERS = {"safe", "caution", "refuse", "legal"}
