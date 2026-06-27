@@ -4,8 +4,9 @@ from responder import generate_safe_response
 from auditor import log_interaction
 
 # ---------------------------------------------------------------------------
-# Example questions — 2 safe, 2 caution, 2 clearly refuse, 2 at the boundary
-# The "replace outlet" vs "add outlet" pair is the key contrast for Milestone 1
+# Example questions — safe, caution, refuse, two boundary cases, plus two legal
+# The "replace outlet" vs "add outlet" pair is the key contrast for Milestone 1;
+# the "do I need a permit" / "can my landlord" pair showcases the legal tier
 # ---------------------------------------------------------------------------
 
 EXAMPLES = [
@@ -17,6 +18,8 @@ EXAMPLES = [
     "Can I add a new electrical outlet to my garage?",
     "Can I upgrade my electrical panel to 200 amps myself?",
     "How do I fix a gas line that smells like it's leaking?",
+    "Do I need a permit to build a deck in my backyard?",
+    "Can my landlord make me pay for a repair I didn't cause?",
 ]
 
 # ---------------------------------------------------------------------------
@@ -42,6 +45,12 @@ TIER_CONFIG = {
         "label": "PROFESSIONAL REQUIRED",
         "note": "This repair requires a licensed professional. Do not attempt DIY.",
     },
+    "legal": {
+        "color": "#7c3aed",
+        "icon": "⚖️",
+        "label": "PERMIT / LEGAL QUESTION",
+        "note": "This is a permit, liability, or tenant-rights question — general info only, not legal advice.",
+    },
     "unknown": {
         "color": "#64748b",
         "icon": "⚙️",
@@ -60,7 +69,7 @@ def _tier_html(tier: str, reason: str) -> str:
     reason_block = (
         f'<p style="margin:8px 0 0 0;color:#374151;font-size:0.9em;">'
         f'<strong>Why:</strong> {reason}</p>'
-        if reason and tier in ("safe", "caution", "refuse")
+        if reason and tier in ("safe", "caution", "refuse", "legal")
         else ""
     )
     return (
