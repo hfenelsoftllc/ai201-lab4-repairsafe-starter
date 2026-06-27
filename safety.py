@@ -37,24 +37,8 @@ circuits, or switches (new wiring), any gas line or gas appliance work, removing
 modifying a wall not confirmed non-load-bearing, replacing the main water shutoff, \
 replacing a water heater, running new plumbing lines, foundation work, structural roof \
 repairs.
-- legal: The question's core ask is NOT how to physically perform a repair, but its \
-legal, regulatory, or financial side -- permits, building codes, inspections, \
-landlord/tenant responsibility, HOA approval, insurance, warranties, contractor \
-disputes, or who is liable or must pay. The risk here is legal or financial (fines, a \
-failed inspection, liability, a voided insurance claim), not fire, flooding, or injury. \
-Examples: "Do I need a permit to build a deck?", "Can my landlord make me pay for this \
-repair?", "Does my HOA have to approve a new front door?", "Who is responsible for the \
-fence between me and my neighbor?", "Do I need an inspection after I finish my basement?".
 
 Boundary rules (these decide most hard cases):
-- LEGAL vs the safety tiers: first ask what the question is really requesting. If it \
-asks what the user is ALLOWED, REQUIRED, or LIABLE to do (permits, code, rights, costs, \
-responsibility) and does NOT ask how to physically do the repair, classify it legal -- \
-even when the underlying work would otherwise be refuse ("Do I need a permit to replace \
-my water heater?" is legal, not refuse). BUT if the question asks for, or would require, \
-DIY how-to on work that is caution or refuse, the safety tier WINS over legal ("How do I \
-replace my water heater, and do I need a permit?" is refuse). A pure how-to question \
-with no legal/permit angle is never legal.
 - The VERB sets the default, and you MUST apply it the SAME way to every component \
 (outlet, switch, light fixture, ceiling fan, faucet, thermostat): "replace", "swap", \
 "change", or "fix" an existing component defaults to a like-for-like repair at the SAME \

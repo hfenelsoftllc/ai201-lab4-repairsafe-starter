@@ -1,19 +1,14 @@
 import json
 import os
 from datetime import datetime, timezone
-from config import (
-    LOG_FILE,
-    LLM_MODEL,
-    SESSION_SUMMARY_FILE,
-    SUMMARY_INTERVAL,
-    VALID_TIERS,
-)
+from config import LOG_FILE, SESSION_SUMMARY_FILE, SUMMARY_EVERY, LLM_MODEL, VALID_TIERS
 
 # Truncation limits (see specs/auditor-spec.md): log enough to diagnose, not
 # enough to become a storage/PII liability.
 _QUESTION_LIMIT = 300
 _RESPONSE_PREVIEW_LIMIT = 200
 _CONSOLE_QUESTION_LIMIT = 60
+_SUMMARY_RECENT_COUNT = 3
 
 
 def log_interaction(question: str, tier: str, response: str) -> None:
@@ -57,6 +52,10 @@ def log_interaction(question: str, tier: str, response: str) -> None:
         print(f"[log_interaction] failed to write audit log: {exc}")
         return
 
+    # Aggregated metrics: after every SUMMARY_EVERY interactions, roll up the
+    # full audit log into one summary line. Best-effort, like the write above.
+    _maybe_write_session_summary()
+
     short_q = question.replace("\n", " ").strip()
     if len(short_q) > _CONSOLE_QUESTION_LIMIT:
         short_q = short_q[:_CONSOLE_QUESTION_LIMIT] + "..."
@@ -68,16 +67,15 @@ def log_interaction(question: str, tier: str, response: str) -> None:
         # arbitrary Unicode in the question; never let the console crash the request.
         print(summary.encode("ascii", "replace").decode("ascii"))
 
-    # Rolling aggregate metrics — also a side effect that must never raise.
-    _maybe_write_session_summary()
-
 
 def _read_audit_records() -> list:
     """
-    Read and parse every record in the audit log, oldest first.
+    Parse the audit log into a list of interaction records (oldest first).
 
-    Tolerant of a missing file (returns []) and of individual malformed lines
-    (skipped), so a single corrupt entry can never break summary generation.
+    The audit log is the single source of truth for per-interaction data, so we
+    derive the session summary by reading it rather than holding state in memory
+    (which would not survive a process restart anyway). Malformed lines are
+    skipped so one bad row can't sink the whole rollup.
     """
     records = []
     try:
@@ -97,43 +95,52 @@ def _read_audit_records() -> list:
 
 def _maybe_write_session_summary() -> None:
     """
-    Every SUMMARY_INTERVAL interactions, append a rolling summary to
+    After every SUMMARY_EVERY interactions, append an aggregated summary line to
     SESSION_SUMMARY_FILE.
 
-    The summary is computed by reading and parsing the audit log (rather than
-    holding an in-memory counter), so it stays correct across restarts and only
-    fires when the cumulative interaction count is an exact multiple of the
-    interval. Like all logging here, failures are reported but never raised.
+    The summary object reports:
+      - "timestamp"          : when the summary was written (ISO 8601 UTC)
+      - "total_interactions" : count of all logged interactions to date
+      - "tier_distribution"  : how many of each tier (safe/caution/refuse, ...)
+      - "recent_questions"   : the 3 most recent questions (most recent first)
+
+    This is a side effect and, like the audit write, must never break the
+    pipeline: any failure is reported to the console but not raised.
     """
     try:
         records = _read_audit_records()
         total = len(records)
-        if total == 0 or total % SUMMARY_INTERVAL != 0:
+        if total == 0 or total % SUMMARY_EVERY != 0:
             return
 
-        distribution = {t: 0 for t in sorted(VALID_TIERS)}
+        # Seed every known tier at 0 so the distribution is stable across
+        # summaries even before a given tier has been seen; count whatever
+        # tiers actually appear in the log on top of that.
+        distribution = {tier: 0 for tier in VALID_TIERS}
         for rec in records:
-            tier = rec.get("tier")
-            if tier in distribution:
-                distribution[tier] += 1
+            tier = rec.get("tier", "unknown")
+            distribution[tier] = distribution.get(tier, 0) + 1
 
-        recent_questions = [
-            rec.get("question", "") for rec in records[-3:]
-        ][::-1]  # most recent first
+        recent = [rec.get("question", "") for rec in records[-_SUMMARY_RECENT_COUNT:]]
+        recent.reverse()  # most recent first
 
-        summary_record = {
+        summary = {
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "total_interactions": total,
-            "tier_distribution": distribution,
-            "recent_questions": recent_questions,
+            "tier_distribution": dict(sorted(distribution.items())),
+            "recent_questions": recent,
         }
 
         summary_dir = os.path.dirname(SESSION_SUMMARY_FILE)
         if summary_dir:
             os.makedirs(summary_dir, exist_ok=True)
-        with open(SESSION_SUMMARY_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(summary_record, ensure_ascii=False) + "\n")
 
-        print(f"[SUMMARY] {total} interactions logged -> {SESSION_SUMMARY_FILE}")
-    except Exception as exc:  # never let summary generation break the request
-        print(f"[log_interaction] failed to write session summary: {exc}")
+        with open(SESSION_SUMMARY_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(summary, ensure_ascii=False) + "\n")
+
+        print(
+            f"[SUMMARY] {total} interactions | "
+            f"{summary['tier_distribution']}"
+        )
+    except Exception as exc:  # never let the rollup break the user-facing request
+        print(f"[_maybe_write_session_summary] failed to write session summary: {exc}")
